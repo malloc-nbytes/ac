@@ -86,7 +86,7 @@ void try_build(char *build_cmd, char *run_filepath)
 
 void usage(const char *prog_name)
 {
-  fprintf(stderr, "Usage: %s [OPTION]... --build <build command> [WATCH FILES]\n", prog_name);
+  fprintf(stderr, "Usage: %s [OPTION]... --build <build command> [WATCH FILES]...\n", prog_name);
   fprintf(stderr, "Active Compilation -- will check for updates in [WATCH FILES].\n");
   fprintf(stderr, "                      When there is a change, it will attempt to run <build command>.\n\n");
   fprintf(stderr, "Options:\n");
