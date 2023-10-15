@@ -8,6 +8,7 @@
 #include <time.h>
 #include <stdint.h>
 
+#define STAT_ATMPT_CAP 300
 #define BUILD_CMD_CAP 64
 #define FILEPATH_CAP 64
 #define SILENT  1 << 0
@@ -112,13 +113,18 @@ void build_loop(char **watch_files, size_t watch_files_len, char *build_cmd, cha
 {
   struct stat file_info;
   time_t prev_time = 0;
-  int idx = 0;
+  size_t idx = 0;
+  size_t stat_attempt = 0;
 
   while (1) {
     const char *filepath = watch_files[idx];
 
     // Make sure we have actually read the file.
     if (stat(filepath, &file_info) == 0) {
+      if (stat_attempt != 0) {
+        LOG("took %ld attempts to open file stats", stat_attempt);
+      }
+      stat_attempt = 0;
       time_t last_modified = file_info.st_mtime;
       FILE *fp = fopen(filepath, "r");
 
@@ -139,7 +145,11 @@ void build_loop(char **watch_files, size_t watch_files_len, char *build_cmd, cha
       }
     }
     else {
+      if (stat_attempt >= STAT_ATMPT_CAP) {
+        ERR("fatal: could not open stat for file: %s after %d attempts\n", filepath, STAT_ATMPT_CAP);
+      }
       LOG("could not open stat for file: %s\n", filepath);
+      stat_attempt++;
     }
 
     idx = (idx+1)%watch_files_len;
