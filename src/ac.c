@@ -8,20 +8,35 @@
 #include <time.h>
 #include <stdint.h>
 
-#define SAME(x, y) strcmp(x, y) == 0
+#define ERR(msg, ...)                                   \
+  do {                                                  \
+    fprintf(stderr, "ERR: " msg "\n", ##__VA_ARGS__);   \
+    exit(EXIT_FAILURE);                                 \
+  } while (0)
+
+#define INFO(msg, ...)                               \
+  do {                                               \
+    printf("[INFO] " msg "\n", ##__VA_ARGS__);       \
+  } while (0)
 
 #define BUILD_CMD_CAP 64
 #define FILEPATH_CAP 64
 #define SILENT 1 << 0
 
 static uint8_t FLAGS = 0x00;
+const float delay = .7f;
+static size_t buildnum = 1;
 
 void try_build(char *build_cmd)
 {
-  printf("[INFO] Detected modification. Building...\n");
+  printf("--------------------\n");
+  INFO("Build %ld", buildnum++);
+
   FILE *fp = NULL;
 
-  if ((FLAGS & SILENT) != 0) {
+  // Redirect output of `build_cmd` to /dev/null if
+  // SILENT flag is set.
+  if ((FLAGS & SILENT) == 1) {
     char redirect[256];
     snprintf(redirect, sizeof(redirect), "%s > /dev/null 2>&1", build_cmd);
     fp = popen(redirect, "r");
@@ -30,19 +45,20 @@ void try_build(char *build_cmd)
   }
 
   if (!fp) {
-    fprintf(stderr, "ERR: could not run the build command %s. Reason: %s\n", build_cmd, strerror(errno));
-    exit(EXIT_FAILURE);
+    ERR("could not run the build command %s. Reason: %s\n",
+        build_cmd, strerror(errno));
   }
 
   int exit_status = pclose(fp);
-  printf("[INFO] Command exited with exit code: %d\n", exit_status);
-  printf("[INFO] Done.\n");
+  INFO("Command exited with exit code: %d\n", exit_status);
+  printf("--------------------\n");
 }
 
 void usage(const char *prog_name)
 {
   fprintf(stderr, "Usage: %s [OPTION]... [FILEPATH] [BUILD]\n", prog_name);
-  fprintf(stderr, "Put description here.\n\n");
+  fprintf(stderr, "Active Compilation -- will check for updates in [FILEPATH].\n");
+  fprintf(stderr, "                      When there is a change, it will attempt to run [BUILD].\n\n");
   fprintf(stderr, "Options:\n");
   fprintf(stderr, "  --help        display this message\n");
   fprintf(stderr, "  --silent      only show exit code and status message\n");
@@ -69,15 +85,21 @@ int main(int argc, char **argv)
   while (argc != 0) {
     const char *arg = eat_arg(&argc, &argv);
 
-    if (SAME(arg, "--help") || SAME(arg, "-h")) {
-      assert(0 && "unimplemented");
-    } else if (SAME(arg, "--silent") || SAME(arg, "-s")) {
-      FLAGS |= SILENT;
-      printf("silent: %d\n", (FLAGS & SILENT) == 1);
-    } else {
+    if (strlen(arg) > 2 && arg[0] == '-' && arg[1] == '-') {
+      if (strcmp(arg, "--help") == 0) {
+        usage(prog_name);
+      }
+      else if (strcmp(arg, "--silent") == 0) {
+        FLAGS |= SILENT;
+        INFO("silent mode set");
+      }
+      else {
+        ERR("ERR: unknown flag %s", arg);
+      }
+    }
+    else {
       if (argc == 0) {
-        fprintf(stderr, "ERR: missing build command");
-        exit(EXIT_FAILURE);
+        ERR("ERR: missing build command");
       }
       strncpy(filepath, arg, FILEPATH_CAP);
       strncpy(build_cmd, eat_arg(&argc, &argv), BUILD_CMD_CAP);
@@ -94,6 +116,9 @@ int main(int argc, char **argv)
       if (fp) {
         fscanf(fp, "%ld", &prev_time);
         fclose(fp);
+      } else {
+        ERR("could not open filepath: %s for reason: %s",
+            filepath, strerror(errno));
       }
 
       if (last_modified > prev_time) {
@@ -101,11 +126,11 @@ int main(int argc, char **argv)
         prev_time = file_info.st_mtime;
       }
     } else {
-      fprintf(stderr, "ERR: stat failed for filepath: %s. Reason: %s\n", filepath, strerror(errno));
-      exit(EXIT_FAILURE);
+      ERR("ERR: stat failed for filepath: %s. Reason: %s\n",
+          filepath, strerror(errno));
     }
 
-    sleep(1);
+    sleep(delay);
   }
 
   return 0;
