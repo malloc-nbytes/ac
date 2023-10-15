@@ -55,4 +55,4 @@ If I want to also run it with `./main` and see the output, the command would be:
 
 `ac --run "valgrind ./main" --build ./build_my_program.sh main.c header.h`
 
-[NOTE]: The "./" in `./main` is important here.
+[NOTE]: The "./" in `./main` is important for all of these examples.
