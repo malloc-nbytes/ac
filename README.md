@@ -7,6 +7,7 @@ This program will attempt to recompile/run the file(s) that are currently being 
 
 Clone the repo:
 - `git clone https://github.com/malloc-nbytes/ac.git`
+- `cd ./ac`
 
 Build the project:
 - `cd ./src`
