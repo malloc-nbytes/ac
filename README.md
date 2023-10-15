@@ -18,14 +18,14 @@ It can now be ran anywhere using `ac`.
 
 ## Usage
 
-ac [OPTION]... --build <build command> [WATCH FILES]...
+`ac [OPTION]... --build <build command> [WATCH FILES]...`
 
-where [OPTION] consists of
+where `[OPTION]` consists of
 
 1. `--help`              display the help message
 2. `--build <build cmd>` the build command (required)
 3. `--run <filepath>`    run the program whenever it compiles
-4. `--silent            only show exit code and status messages
+4. `--silent`            only show exit code and status messages
 5. `--verbose`           show extra debugging information
 
 ### Example
