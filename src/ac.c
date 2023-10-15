@@ -10,8 +10,9 @@
 
 #define BUILD_CMD_CAP 64
 #define FILEPATH_CAP 64
-#define SILENT 1 << 0
+#define SILENT  1 << 0
 #define VERBOSE 1 << 1
+#define RUN     1 << 2
 
 #define ERR(msg, ...)                                   \
   do {                                                  \
@@ -31,11 +32,11 @@
     }                                                \
   } while (0)
 
-static uint8_t FLAGS = 0x00;
+static uint16_t FLAGS = 0x00;
 const float delay = .7f;
 static size_t buildnum = 1;
 
-void try_build(char *build_cmd)
+void try_build(char *build_cmd, char *run_filepath)
 {
   printf("--------------------\n");
   INFO("Build %ld", buildnum++);
@@ -54,36 +55,59 @@ void try_build(char *build_cmd)
   }
 
   if (!fp) {
-    ERR("could not run the build command %s. Reason: %s\n",
+    ERR("could not run the build command %s because of: %s\n",
         build_cmd, strerror(errno));
   }
 
-  // pclose() returns the exit status.
+  // `pclose()` returns the exit status.
   int exit_status = pclose(fp);
-  INFO("Command exited with exit code: %d\n", exit_status);
+  INFO("command exited with exit code: %d\n", exit_status);
+
+  // TODO: make this check the file for
+  // last modification.
+  if ((FLAGS & RUN) != 0 && exit_status == 0) {
+    fp = popen(run_filepath, "r");
+    if (!fp) {
+      fprintf(stderr, "could not run: %s because of: %s",
+          run_filepath, strerror(errno));
+    }
+
+    // Print the output of the program.
+    char buffer[128];
+    while (fgets(buffer, sizeof(buffer), fp) != NULL) {
+        printf("%s", buffer);
+    }
+    exit_status = pclose(fp);
+    INFO("%s exited with code: %d", run_filepath, exit_status);
+  }
+
   printf("--------------------\n");
 }
 
 void usage(const char *prog_name)
 {
-  fprintf(stderr, "Usage: %s [OPTION]... [FILEPATH] [BUILD]\n", prog_name);
+  fprintf(stderr, "Usage: %s [OPTION]... [FILEPATH] [BUILD]...\n", prog_name);
   fprintf(stderr, "Active Compilation -- will check for updates in [FILEPATH].\n");
   fprintf(stderr, "                      When there is a change, it will attempt to run [BUILD].\n\n");
   fprintf(stderr, "Options:\n");
-  fprintf(stderr, "  --help        display this message\n");
-  fprintf(stderr, "  --silent      only show exit code and status message\n");
-  fprintf(stderr, "  --verbose     show extra information\n");
+  fprintf(stderr, "  --help              display this message\n");
+  fprintf(stderr, "  --run <filepath>    run the program whenever it compiles\n");
+  fprintf(stderr, "  --silent            only show exit code and status message\n");
+  fprintf(stderr, "  --verbose           show extra information\n");
   exit(EXIT_FAILURE);
 }
 
 // Easy way to go through the `argv`
-const char *eat_arg(int *argc, char ***argv)
+const char *expect(int *argc, char ***argv, const char *expected)
 {
+  if (argc == 0) {
+    ERR("expected %s, but `argc` = 0", expected);
+  }
   (*argc)--;
   return *(*argv)++;
 }
 
-void build_loop(char *filepath, char *build_cmd)
+void build_loop(char *filepath, char *build_cmd, char *run_filepath)
 {
   struct stat file_info;
   time_t prev_time = 0;
@@ -106,7 +130,7 @@ void build_loop(char *filepath, char *build_cmd)
       // The file has been updated. Try to build.
       if (last_modified > prev_time) {
         LOG("`last_modified: %ld :: `prev_time`: %ld", last_modified, prev_time);
-        try_build(build_cmd);
+        try_build(build_cmd, run_filepath);
         prev_time = file_info.st_mtime;
       }
     }
@@ -121,7 +145,7 @@ void build_loop(char *filepath, char *build_cmd)
 
 int main(int argc, char **argv)
 {
-  const char *prog_name = eat_arg(&argc, &argv);
+  const char *prog_name = expect(&argc, &argv, "program name");
 
   if (argc == 0) {
     usage(prog_name);
@@ -129,9 +153,10 @@ int main(int argc, char **argv)
 
   char build_cmd[BUILD_CMD_CAP] = {0};
   char filepath[FILEPATH_CAP] = {0};
+  char run_filepath[FILEPATH_CAP] = {0};
 
   while (argc != 0) {
-    const char *arg = eat_arg(&argc, &argv);
+    const char *arg = expect(&argc, &argv, "flag, filepath, or build command");
 
     if (strlen(arg) > 2 && arg[0] == '-' && arg[1] == '-') {
       if (strcmp(arg, "--help") == 0) {
@@ -145,25 +170,27 @@ int main(int argc, char **argv)
         FLAGS |= VERBOSE;
         LOG("verbose mode set");
       }
+      else if (strcmp(arg, "--run") == 0) {
+        FLAGS |= RUN;
+        LOG("run mode set");
+        const char *try_run_filepath = expect(&argc, &argv, "run filepath");
+        strncpy(run_filepath, try_run_filepath, FILEPATH_CAP);
+        LOG("run filepath: %s", run_filepath);
+      }
       else {
         ERR("ERR: unknown flag %s", arg);
       }
       LOG("flag: %s", arg);
     }
     else {
-      // With the way we are parsing, the next
-      // argument is taken as the build comand.
-      if (argc == 0) {
-        ERR("ERR: missing build command");
-      }
       strncpy(filepath, arg, FILEPATH_CAP);
-      strncpy(build_cmd, eat_arg(&argc, &argv), BUILD_CMD_CAP);
+      strncpy(build_cmd, expect(&argc, &argv, "build command"), BUILD_CMD_CAP);
       LOG("`filepath`: %s", filepath);
       LOG("`build_cmd`: %s", build_cmd);
     }
   }
 
-  build_loop(filepath, build_cmd);
+  build_loop(filepath, build_cmd, run_filepath);
 
   return 0;
 }

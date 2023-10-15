@@ -2,4 +2,4 @@
 
 set -xe
 
-gcc -g -Wall -Wextra -o ac ac.c
+cc -g -Wall -Wextra -o ac ac.c
