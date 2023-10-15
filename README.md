@@ -47,4 +47,12 @@ If I want to also run it with `./main` and see the output, the command would be:
 
 `ac --run ./main --build "g++ -Wextra -Wall -o main main.cpp" main.c header.h`
 
-[NOTE]: the "./" in `./main` is important here.
+[NOTE]: If you have a very long build/run command, you can give it a file to use.
+
+`ac --run ./main --build ./build_my_program.sh main.c header.h`
+
+[NOTE]: You can also have it run with another program as well. Take `valgrind` for example:
+
+`ac --run "valgrind ./main" --build ./build_my_program.sh main.c header.h`
+
+[NOTE]: The "./" in `./main` is important here.
