@@ -3,15 +3,29 @@
 #include <string.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <errno.h>
+#include <sys/stat.h>
+#include <time.h>
 
 #define SAME(x, y) strcmp(x, y) == 0
 
 #define BUILD_CMD_CAP 64
 #define FILEPATH_CAP 64
 
-void try_build(char *filepath, char *build_cmd)
+void try_build(char *build_cmd)
 {
-  assert(0 && "unimplemented");
+  FILE *fp = popen(build_cmd, "w");
+  if (!fp) {
+    fprintf(stderr, "ERR: could not run the build command %s. Reason: %s\n", build_cmd, strerror(errno));
+    exit(EXIT_FAILURE);
+  }
+
+  char buffer[1024];
+  while (fgets(buffer, sizeof(buffer), fp) != NULL) {
+    printf("%s\n", buffer);
+  }
+
+  pclose(fp);
 }
 
 void usage(const char *prog_name)
@@ -58,9 +72,29 @@ int main(int argc, char **argv)
     }
   }
 
+  struct stat file_info;
+  time_t prev_time = 0;
   while (1) {
+    if (stat(filepath, &file_info) == 0) {
+      time_t last_modified = file_info.st_mtime;
+      FILE *fp = fopen(filepath, "r");
+
+      if (fp) {
+        fscanf(fp, "%ld", &prev_time);
+        fclose(fp);
+      }
+
+      if (last_modified > prev_time) {
+        printf("[INFO] Detected modification. Building...\n");
+        try_build(build_cmd);
+        prev_time = file_info.st_mtime;
+      }
+    } else {
+      fprintf(stderr, "ERR: stat failed for filepath: %s. Reason: %s\n", filepath, strerror(errno));
+      exit(EXIT_FAILURE);
+    }
+
     sleep(1);
-    try_build(filepath, build_cmd);
   }
 
   return 0;
