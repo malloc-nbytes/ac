@@ -61,7 +61,7 @@ void try_build(char *build_cmd, char *run_filepath)
 
   // `pclose()` returns the exit status.
   int exit_status = pclose(fp);
-  INFO("command exited with exit code: %d\n", exit_status);
+  INFO("command exited with exit code: %d", exit_status);
 
   // TODO: make this check the file for
   // last modification.
