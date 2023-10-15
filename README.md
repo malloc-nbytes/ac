@@ -9,10 +9,14 @@ Clone the repo:
 - `git clone https://github.com/malloc-nbytes/ac.git`
 
 Build the project:
+- `cd ./src`
 - `./build.sh`
+- `cd ../`
 
 Install the project:
 - `./install.sh`
+
+It will then prompt you for your password.
 
 It can now be ran anywhere using `ac`.
 
