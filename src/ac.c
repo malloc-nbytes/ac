@@ -86,11 +86,12 @@ void try_build(char *build_cmd, char *run_filepath)
 
 void usage(const char *prog_name)
 {
-  fprintf(stderr, "Usage: %s [OPTION]... [FILEPATH] [BUILD]...\n", prog_name);
-  fprintf(stderr, "Active Compilation -- will check for updates in [FILEPATH].\n");
-  fprintf(stderr, "                      When there is a change, it will attempt to run [BUILD].\n\n");
+  fprintf(stderr, "Usage: %s [OPTION]... --build <build command> [WATCH FILES]\n", prog_name);
+  fprintf(stderr, "Active Compilation -- will check for updates in [WATCH FILES].\n");
+  fprintf(stderr, "                      When there is a change, it will attempt to run <build command>.\n\n");
   fprintf(stderr, "Options:\n");
   fprintf(stderr, "  --help              display this message\n");
+  fprintf(stderr, "  --build <build cmd> the build command (required)\n");
   fprintf(stderr, "  --run <filepath>    run the program whenever it compiles\n");
   fprintf(stderr, "  --silent            only show exit code and status message\n");
   fprintf(stderr, "  --verbose           show extra information\n");
@@ -107,12 +108,15 @@ const char *expect(int *argc, char ***argv, const char *expected)
   return *(*argv)++;
 }
 
-void build_loop(char *filepath, char *build_cmd, char *run_filepath)
+void build_loop(char **watch_files, size_t watch_files_len, char *build_cmd, char *run_filepath)
 {
   struct stat file_info;
   time_t prev_time = 0;
+  int idx = 0;
 
   while (1) {
+    const char *filepath = watch_files[idx];
+
     // Make sure we have actually read the file.
     if (stat(filepath, &file_info) == 0) {
       time_t last_modified = file_info.st_mtime;
@@ -139,6 +143,8 @@ void build_loop(char *filepath, char *build_cmd, char *run_filepath)
           filepath, strerror(errno));
     }
 
+    idx = (idx+1)%watch_files_len;
+
     sleep(delay);
   }
 }
@@ -152,8 +158,9 @@ int main(int argc, char **argv)
   }
 
   char build_cmd[BUILD_CMD_CAP] = {0};
-  char filepath[FILEPATH_CAP] = {0};
   char run_filepath[FILEPATH_CAP] = {0};
+  char *watch_files[FILEPATH_CAP] = {0};
+  size_t watch_files_len = 0;
 
   while (argc != 0) {
     const char *arg = expect(&argc, &argv, "flag, filepath, or build command");
@@ -177,20 +184,23 @@ int main(int argc, char **argv)
         strncpy(run_filepath, try_run_filepath, FILEPATH_CAP);
         LOG("run filepath: %s", run_filepath);
       }
+      else if (strcmp(arg, "--build") == 0) {
+        const char *try_build_cmd = expect(&argc, &argv, "build command");
+        strncpy(build_cmd, try_build_cmd, BUILD_CMD_CAP);
+        LOG("build command: %s", build_cmd);
+      }
       else {
         ERR("ERR: unknown flag %s", arg);
       }
       LOG("flag: %s", arg);
     }
     else {
-      strncpy(filepath, arg, FILEPATH_CAP);
-      strncpy(build_cmd, expect(&argc, &argv, "build command"), BUILD_CMD_CAP);
-      LOG("`filepath`: %s", filepath);
-      LOG("`build_cmd`: %s", build_cmd);
+      watch_files[watch_files_len++] = strdup(arg);
+      LOG("added watch file: %s", watch_files[watch_files_len - 1]);
     }
   }
 
-  build_loop(filepath, build_cmd, run_filepath);
+  build_loop(watch_files, watch_files_len, build_cmd, run_filepath);
 
   return 0;
 }
