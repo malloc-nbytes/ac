@@ -30,13 +30,13 @@ where `[OPTION]` consists of
 
 ### Example
 
-I have two files called `main.cpp` and `header.h`. I want to compile it using `g++ -Wextra -Wall -o main main.cpp`.
+I have two files called "main.cpp" and "header.h". I want to compile it using `g++ -Wextra -Wall -o main main.cpp`.
 
 The command to utilize `ac` for this would be:
 
 `ac --build "g++ -Wextra -Wall -o main main.cpp" main.c header.h`
 
-Now whenever `main.cpp` or `header.h` is updated, it will attempt to run `g++ -Wextra -Wall -o main main.cpp`.
+Now whenever "main.cpp" or "header.h" is updated, it will attempt to run `g++ -Wextra -Wall -o main main.cpp`.
 
 If I want to also run it with `./main` and see the output, the command would be:
 
