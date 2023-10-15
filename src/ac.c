@@ -8,6 +8,11 @@
 #include <time.h>
 #include <stdint.h>
 
+#define BUILD_CMD_CAP 64
+#define FILEPATH_CAP 64
+#define SILENT 1 << 0
+#define VERBOSE 1 << 1
+
 #define ERR(msg, ...)                                   \
   do {                                                  \
     fprintf(stderr, "ERR: " msg "\n", ##__VA_ARGS__);   \
@@ -19,9 +24,12 @@
     printf("[INFO] " msg "\n", ##__VA_ARGS__);       \
   } while (0)
 
-#define BUILD_CMD_CAP 64
-#define FILEPATH_CAP 64
-#define SILENT 1 << 0
+#define LOG(msg, ...)                                \
+  do {                                               \
+    if ((FLAGS & VERBOSE) != 0) {                    \
+      printf("[LOG] " msg "\n", ##__VA_ARGS__);      \
+    }                                                \
+  } while (0)
 
 static uint8_t FLAGS = 0x00;
 const float delay = .7f;
@@ -37,6 +45,7 @@ void try_build(char *build_cmd)
   // Redirect output of `build_cmd` to /dev/null if
   // SILENT flag is set.
   if ((FLAGS & SILENT) == 1) {
+    LOG("Redirecting output > /dev/null");
     char redirect[256];
     snprintf(redirect, sizeof(redirect), "%s > /dev/null 2>&1", build_cmd);
     fp = popen(redirect, "r");
@@ -49,6 +58,7 @@ void try_build(char *build_cmd)
         build_cmd, strerror(errno));
   }
 
+  // pclose() returns the exit status.
   int exit_status = pclose(fp);
   INFO("Command exited with exit code: %d\n", exit_status);
   printf("--------------------\n");
@@ -62,13 +72,51 @@ void usage(const char *prog_name)
   fprintf(stderr, "Options:\n");
   fprintf(stderr, "  --help        display this message\n");
   fprintf(stderr, "  --silent      only show exit code and status message\n");
+  fprintf(stderr, "  --verbose     show extra information\n");
   exit(EXIT_FAILURE);
 }
 
+// Easy way to go through the `argv`
 const char *eat_arg(int *argc, char ***argv)
 {
   (*argc)--;
   return *(*argv)++;
+}
+
+void build_loop(char *filepath, char *build_cmd)
+{
+  struct stat file_info;
+  time_t prev_time = 0;
+
+  while (1) {
+    // Make sure we have actually read the file.
+    if (stat(filepath, &file_info) == 0) {
+      time_t last_modified = file_info.st_mtime;
+      FILE *fp = fopen(filepath, "r");
+
+      if (fp) {
+        fscanf(fp, "%ld", &prev_time);
+        fclose(fp);
+      }
+      else {
+        ERR("could not open filepath: %s for reason: %s",
+            filepath, strerror(errno));
+      }
+
+      // The file has been updated. Try to build.
+      if (last_modified > prev_time) {
+        LOG("`last_modified: %ld :: `prev_time`: %ld", last_modified, prev_time);
+        try_build(build_cmd);
+        prev_time = file_info.st_mtime;
+      }
+    }
+    else {
+      ERR("ERR: stat failed for filepath: %s. Reason: %s\n",
+          filepath, strerror(errno));
+    }
+
+    sleep(delay);
+  }
 }
 
 int main(int argc, char **argv)
@@ -91,47 +139,31 @@ int main(int argc, char **argv)
       }
       else if (strcmp(arg, "--silent") == 0) {
         FLAGS |= SILENT;
-        INFO("silent mode set");
+        LOG("silent mode set");
+      }
+      else if (strcmp(arg, "--verbose") == 0) {
+        FLAGS |= VERBOSE;
+        LOG("verbose mode set");
       }
       else {
         ERR("ERR: unknown flag %s", arg);
       }
+      LOG("flag: %s", arg);
     }
     else {
+      // With the way we are parsing, the next
+      // argument is taken as the build comand.
       if (argc == 0) {
         ERR("ERR: missing build command");
       }
       strncpy(filepath, arg, FILEPATH_CAP);
       strncpy(build_cmd, eat_arg(&argc, &argv), BUILD_CMD_CAP);
+      LOG("`filepath`: %s", filepath);
+      LOG("`build_cmd`: %s", build_cmd);
     }
   }
 
-  struct stat file_info;
-  time_t prev_time = 0;
-  while (1) {
-    if (stat(filepath, &file_info) == 0) {
-      time_t last_modified = file_info.st_mtime;
-      FILE *fp = fopen(filepath, "r");
-
-      if (fp) {
-        fscanf(fp, "%ld", &prev_time);
-        fclose(fp);
-      } else {
-        ERR("could not open filepath: %s for reason: %s",
-            filepath, strerror(errno));
-      }
-
-      if (last_modified > prev_time) {
-        try_build(build_cmd);
-        prev_time = file_info.st_mtime;
-      }
-    } else {
-      ERR("ERR: stat failed for filepath: %s. Reason: %s\n",
-          filepath, strerror(errno));
-    }
-
-    sleep(delay);
-  }
+  build_loop(filepath, build_cmd);
 
   return 0;
 }
