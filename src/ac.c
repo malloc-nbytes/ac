@@ -6,26 +6,37 @@
 #include <errno.h>
 #include <sys/stat.h>
 #include <time.h>
+#include <stdint.h>
 
 #define SAME(x, y) strcmp(x, y) == 0
 
 #define BUILD_CMD_CAP 64
 #define FILEPATH_CAP 64
+#define SILENT 1 << 0
+
+static uint8_t FLAGS = 0x00;
 
 void try_build(char *build_cmd)
 {
-  FILE *fp = popen(build_cmd, "w");
+  printf("[INFO] Detected modification. Building...\n");
+  FILE *fp = NULL;
+
+  if ((FLAGS & SILENT) != 0) {
+    char redirect[256];
+    snprintf(redirect, sizeof(redirect), "%s > /dev/null 2>&1", build_cmd);
+    fp = popen(redirect, "r");
+  } else {
+    fp = popen(build_cmd, "r");
+  }
+
   if (!fp) {
     fprintf(stderr, "ERR: could not run the build command %s. Reason: %s\n", build_cmd, strerror(errno));
     exit(EXIT_FAILURE);
   }
 
-  char buffer[1024];
-  while (fgets(buffer, sizeof(buffer), fp) != NULL) {
-    printf("%s\n", buffer);
-  }
-
-  pclose(fp);
+  int exit_status = pclose(fp);
+  printf("[INFO] Command exited with exit code: %d\n", exit_status);
+  printf("[INFO] Done.\n");
 }
 
 void usage(const char *prog_name)
@@ -60,8 +71,9 @@ int main(int argc, char **argv)
 
     if (SAME(arg, "--help") || SAME(arg, "-h")) {
       assert(0 && "unimplemented");
-    } else if (SAME(arg, "--selent") || SAME(arg, "-s")) {
-      assert(0 && "unimplemented");
+    } else if (SAME(arg, "--silent") || SAME(arg, "-s")) {
+      FLAGS |= SILENT;
+      printf("silent: %d\n", (FLAGS & SILENT) == 1);
     } else {
       if (argc == 0) {
         fprintf(stderr, "ERR: missing build command");
@@ -85,7 +97,6 @@ int main(int argc, char **argv)
       }
 
       if (last_modified > prev_time) {
-        printf("[INFO] Detected modification. Building...\n");
         try_build(build_cmd);
         prev_time = file_info.st_mtime;
       }

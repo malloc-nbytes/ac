@@ -4,7 +4,7 @@ int sum(int a, int b) {
   return a + b;
 }
 
-int main(void)
+int main()
 {
   int x = 2;
   int y = 0;
