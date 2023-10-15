@@ -139,8 +139,7 @@ void build_loop(char **watch_files, size_t watch_files_len, char *build_cmd, cha
       }
     }
     else {
-      ERR("ERR: stat failed for filepath: %s. Reason: %s\n",
-          filepath, strerror(errno));
+      LOG("could not open stat for file: %s\n", filepath);
     }
 
     idx = (idx+1)%watch_files_len;
