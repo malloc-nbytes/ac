@@ -37,6 +37,30 @@ static uint16_t FLAGS = 0x00;
 const float delay = .7f;
 static size_t buildnum = 1;
 
+void usage(const char *prog_name)
+{
+  fprintf(stderr, "Usage: %s [OPTION]... --build <build command> [WATCH FILES]...\n", prog_name);
+  fprintf(stderr, "Active Compilation -- will check for updates in [WATCH FILES].\n");
+  fprintf(stderr, "                      When there is a change, it will attempt to run <build command>.\n\n");
+  fprintf(stderr, "Options:\n");
+  fprintf(stderr, "  --help              display this message\n");
+  fprintf(stderr, "  --build <build cmd> the build command (required)\n");
+  fprintf(stderr, "  --run <filepath>    run the program whenever it compiles\n");
+  fprintf(stderr, "  --silent            only show exit code and status message\n");
+  fprintf(stderr, "  --verbose           show extra information\n");
+  exit(EXIT_FAILURE);
+}
+
+// Easy way to go through the `argv`
+const char *expect(int *argc, char ***argv, const char *expected)
+{
+  if (argc == 0) {
+    ERR("expected %s, but `argc` = 0", expected);
+  }
+  (*argc)--;
+  return *(*argv)++;
+}
+
 void try_build(char *build_cmd, char *run_filepath)
 {
   printf("--------------------\n");
@@ -83,30 +107,6 @@ void try_build(char *build_cmd, char *run_filepath)
   }
 
   printf("--------------------\n");
-}
-
-void usage(const char *prog_name)
-{
-  fprintf(stderr, "Usage: %s [OPTION]... --build <build command> [WATCH FILES]...\n", prog_name);
-  fprintf(stderr, "Active Compilation -- will check for updates in [WATCH FILES].\n");
-  fprintf(stderr, "                      When there is a change, it will attempt to run <build command>.\n\n");
-  fprintf(stderr, "Options:\n");
-  fprintf(stderr, "  --help              display this message\n");
-  fprintf(stderr, "  --build <build cmd> the build command (required)\n");
-  fprintf(stderr, "  --run <filepath>    run the program whenever it compiles\n");
-  fprintf(stderr, "  --silent            only show exit code and status message\n");
-  fprintf(stderr, "  --verbose           show extra information\n");
-  exit(EXIT_FAILURE);
-}
-
-// Easy way to go through the `argv`
-const char *expect(int *argc, char ***argv, const char *expected)
-{
-  if (argc == 0) {
-    ERR("expected %s, but `argc` = 0", expected);
-  }
-  (*argc)--;
-  return *(*argv)++;
 }
 
 void build_loop(char **watch_files, size_t watch_files_len, char *build_cmd, char *run_filepath)
